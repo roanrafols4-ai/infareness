@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head> <link rel="stylesheet" href="style.css"> </head>
+<body>
+  <main>
+
+    <h1>inFAREness</h1>
+    <p class="sub">Welcome aboard! Check your fare before you pay.</p>
+
+    <section class="card">
+      <p class="lbl">Your bus</p>
+      <div class="bus-head">
+        <div class="avatar" id="avatar"></div>
+        <div>
+          <p class="driver-name" id="driver"></p>
+          <p class="driver-role">Bus driver</p>
+        </div>
+      </div>
+      <div class="bus-meta">
+        <div class="meta-box"><small>Plate number</small><b id="plate"></b></div>
+        <div class="meta-box"><small>Bus no.</small><b id="busno"></b></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <p class="lbl">Where are you going?</p>
+      <div class="list" id="rte"></div>
+    </section>
+
+    <section class="card">
+      <p class="lbl">Passenger type</p>
+      <div class="grid" id="typ"></div>
+
+      <p class="lbl" style="margin-top:14px" id="paxLbl">Number of passengers</p>
+      <div class="step">
+        <button id="minus" aria-label="Fewer passengers">−</button>
+        <span id="cnt">1</span>
+        <button id="plus" aria-label="More passengers">+</button>
+      </div>
+    </section>
+
+    <section class="total" aria-live="polite">
+      <p>Total fare to pay</p>
+      <div class="amt" id="amt">₱0.00</div>
+      <div class="per" id="per"></div>
+    </section>
+
+    <section class="card bd" id="bd"></section>
+
+    <section class="card">
+      <p class="lbl">I&rsquo;m paying with</p>
+      <div class="chips" id="chips"></div>
+      <div class="change" id="chg"></div>
+      <p class="note">
+        hehehehehehheehehehehehehe
+      
+      </p>
+    </section>
+
+  </main>
+
+  <script>
+    const ROUTES = [
+      { id: 'banago',     n: 'Brgy. Banago',       reg: 15, disc: 10,
+        driver: 'Juan Dela Cruz',    plate: 'NDE 4821', busNo: 'Bus 07' },
+      { id: 'punta',      n: 'Brgy. Punta Taytay', reg: 25, disc: 20,
+        driver: 'Roberto Santos',    plate: 'GAB 1593', busNo: 'Bus 12' },
+      { id: 'mandalagan', n: 'Brgy. Mandalagan',   reg: 20, disc: 15,
+        driver: 'Eduardo Villanueva', plate: 'NEA 7306', busNo: 'Bus 21' }
+    ];
+
+    const MIN_FARE_DISCOUNT = 0.2;
+
+    const TRIPS = [
+      { id: 'full',  n: 'Downtown',               d: 'Full route fare' },
+      { id: 'short', n: 'Stop 1', d: 'Minimum fare: 20% off' },
+      { id: 'short2', n: 'Stop 2', d: 'Minimum fare: 20% off' },
+      { id: 'short3', n: 'Stop 3', d: 'Minimum fare: 20% off' },
+      { id: 'short4', n: 'Stop 4', d: 'Minimum fare: 20% off' }
+
+
+
+  
+    ];
+    
+    const TYPES = [
+      { id: 'reg',  n: 'Regular',                d: 'Full fare' },
+      { id: 'disc', n: 'Student / PWD / Senior', d: 'Discounted fare' }
+    ];
+
+    const PAY_OPTIONS = [20, 50, 100, 200, 500, 1000];
+
+    const state = {
+      route: null,
+      trip: null,
+      t: 'reg',
+      reg: 0,
+      disc: 0,
+      pay: 50
+    };
+
+    const $ = id => document.getElementById(id);
+    const peso = amount => '₱' + amount.toFixed(2);
+    const roundQuarter = amount => Math.round(amount * 4) / 4;
+
+    function renderBus() {
+      const route = ROUTES.find(x => x.id === state.route);
+
+      if (!route) {
+        $('avatar').textContent = '?';
+        $('driver').textContent = 'Select your place below';
+        $('plate').textContent = '—';
+        $('busno').textContent = '—';
+        return;
+      }
+
+      const initials = route.driver
+        .split(' ')
+        .map(word => word[0])
+        .slice(0, 2)
+        .join('');
+
+      $('avatar').textContent = initials;
+      $('driver').textContent = route.driver;
+      $('plate').textContent = route.plate;
+      $('busno').textContent = route.busNo;
+    }
+
+    let shownRoute = null;
+
+    function renderRoutes() {
+      const host = $('rte');
+      const animate = state.route !== shownRoute;
+      shownRoute = state.route;
+      host.innerHTML = '';
+
+      ROUTES.forEach(route => {
+        const btn = document.createElement('button');
+        btn.className = 'opt';
+        btn.innerHTML = '<b>' + route.n + '</b>';
+        btn.setAttribute('aria-pressed', state.route === route.id);
+        btn.onclick = () => {
+          if (state.route !== route.id) {
+            state.route = route.id;
+            state.trip = null;
+          }
+          render();
+        };
+        host.appendChild(btn);
+
+        if (state.route === route.id) {
+          const sub = document.createElement('div');
+          sub.className = animate ? 'sub pop' : 'sub';
+
+          TRIPS.forEach(trip => {
+            const opt = document.createElement('button');
+            opt.className = 'opt';
+            opt.innerHTML = '<b>' + trip.n + '</b><small>' + trip.d + '</small>';
+            opt.setAttribute('aria-pressed', state.trip === trip.id);
+            opt.onclick = () => {
+              state.trip = trip.id;
+              render();
+            };
+            sub.appendChild(opt);
+          });
+
+          host.appendChild(sub);
+        }
+      });
+    }
+
+    function renderTypes() {
+      const host = $('typ');
+      host.innerHTML = '';
+
+      TYPES.forEach(type => {
+        const btn = document.createElement('button');
+        btn.className = 'opt';
+        btn.dataset.id = type.id;
+        btn.innerHTML = '<b>' + type.n + '</b><small>' + type.d +
+                        ' · ' + state[type.id] + '</small>';
+        btn.onclick = () => {
+          // Switching type keeps both counts so they can be combined
+          state.t = type.id;
+          render();
+        };
+        host.appendChild(btn);
+      });
+    }
+
+    function syncPressed(host, key) {
+      [...host.children].forEach(btn => {
+        btn.setAttribute('aria-pressed', btn.dataset.id === state[key]);
+      });
+    }
+
+    function calculateFare() {
+      const route = ROUTES.find(x => x.id === state.route);
+
+      if (!route || !state.trip) {
+        return { ready: false, route: null, regBase: 0, discBase: 0,
+                 minSaved: 0, total: 0, count: state.reg + state.disc };
+      }
+
+      const regBase = route.reg;
+      const discBase = route.disc;
+
+      let regMin;
+      let discMin;
+      if (state.trip !== 'full') {
+        regMin = roundQuarter(regBase * MIN_FARE_DISCOUNT);
+        discMin = roundQuarter(discBase * MIN_FARE_DISCOUNT);
+      } else {
+        regMin = 0;
+        discMin = 0;
+      }
+      const regFare = regBase - regMin;
+      const discFare = discBase - discMin;
+
+      const regTotal = regFare * state.reg;
+      const discTotal = discFare * state.disc;
+      const total = regTotal + discTotal;
+      const minSaved = regMin * state.reg + discMin * state.disc;
+      const count = state.reg + state.disc;
+
+      return { ready: true, route, regBase, discBase, minSaved, total, count };
+    }
+
+    function renderTotal(fare) {
+      $('amt').textContent = peso(fare.total);
+      const type = TYPES.find(x => x.id === state.t);
+      $('cnt').textContent = state[state.t];
+      $('paxLbl').textContent = 'Number of passengers · ' + type.n;
+
+      if (!fare.ready) {
+        $('per').textContent = 'Choose your place and destination';
+        return;
+      }
+
+      const place = state.trip !== 'full'
+        ? fare.route.n + ' (doesn’t reach Downtown)'
+        : fare.route.n + ' → Downtown';
+
+      if (fare.count === 0) {
+        $('per').textContent = 'Add passengers to see your fare';
+      } else if (fare.count === 1) {
+        $('per').textContent = '1 passenger · ' + place;
+      } else {
+        $('per').textContent = fare.count + ' passengers · ' + place;
+      }
+    }
+
+    function renderBreakdown(fare) {
+      $('bd').style.display = fare.ready ? '' : 'none';
+
+      let html = '';
+
+      if (state.reg > 0) {
+        html += '<div><span>Regular: ' + state.reg + ' × ' + peso(fare.regBase) + '</span>' +
+                '<span>' + peso(fare.regBase * state.reg) + '</span></div>';
+      }
+
+      if (state.disc > 0) {
+        html += '<div><span>Student / PWD / Senior: ' + state.disc + ' × ' +
+                peso(fare.discBase) + '</span>' +
+                '<span>' + peso(fare.discBase * state.disc) + '</span></div>';
+      }
+
+      if (fare.minSaved > 0) {
+        html += '<div><span>Minimum fare (20% off)</span>' +
+                '<span class="neg">−' + peso(fare.minSaved) + '</span></div>';
+      }
+
+      html += '<div><span>Total</span><span>' + peso(fare.total) + '</span></div>';
+
+      $('bd').innerHTML = html;
+    }
+
+    function renderPayment(fare) {
+      $('chips').innerHTML = '';
+
+      PAY_OPTIONS.forEach(amount => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.textContent = '₱' + amount;
+        chip.setAttribute('aria-pressed', state.pay === amount);
+        chip.onclick = () => {
+          state.pay = amount;
+          render();
+        };
+        $('chips').appendChild(chip);
+      });
+
+      $('chg').innerHTML = !fare.ready || fare.count === 0
+        ? ''
+        : state.pay >= fare.total
+        ? 'Your change: <b>' + peso(state.pay - fare.total) + '</b>'
+        : '<span style="color:var(--warn)">Not enough. You need ' +
+          peso(fare.total - state.pay) + ' more.</span>';
+    }
+
+    function render() {
+      renderBus();
+      renderTypes();
+      syncPressed($('typ'), 't');
+      renderRoutes();
+
+      const fare = calculateFare();
+      renderTotal(fare);
+      renderBreakdown(fare);
+      renderPayment(fare);
+    }
+
+    function changeCount(key, delta) {
+      const next = state[key] + delta;
+
+      if (next < 0 || next > 20) return;
+
+      state[key] = next;
+      render();
+    }
+
+    $('minus').onclick = () => changeCount(state.t, -1);
+    $('plus').onclick = () => changeCount(state.t, 1);
+
+    render();
+  </script>
+</body>
+</html>
